@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "268285022453",
+    "project_id": "flutter-geofence-notification",
+    "storage_bucket": "flutter-geofence-notification.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:268285022453:android:e29bec175bc201592675bc",
+        "android_client_info": {
+          "package_name": "com.example.flutter_maps"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "268285022453-03cv9r1gcfj2htf33fv3qmr20eb4cacb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDYNMyOF1_WLmp2Wj7-bGUjFncwjS6jfPo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "268285022453-03cv9r1gcfj2htf33fv3qmr20eb4cacb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

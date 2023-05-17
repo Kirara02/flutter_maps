@@ -1,8 +1,11 @@
 import 'dart:convert';
-
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_maps/api_service.dart';
+import 'package:flutter_maps/main.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -61,18 +64,37 @@ class _MapPageState extends State<MapPage> {
       });
     }
 
-    String distance = calculateDistance(point!, latLng);
+    String distance = await calculateDistance(point!, latLng);
 
     print('Jarak antara lokasi anda ke lokasi yang dituju adalah $distance km');
   }
 
-  String calculateDistance(LatLng latLng1, LatLng latLng2) {
+  Future<String> calculateDistance(LatLng latLng1, LatLng latLng2) async {
     double distanceInMeters = Geolocator.distanceBetween(
       latLng1.latitude,
       latLng1.longitude,
       latLng2.latitude,
       latLng2.longitude,
     );
+
+    String? token = await FirebaseMessaging.instance.getToken();
+    if (distanceInMeters <= 100) {
+      // Di dalam Geofence
+      print('Lokasi yang di Klik berada di dalam Geofence');
+      sendNotification(
+        'Geofence Radius',
+        'Lokasi yang di Klik berada di dalam Geofence',
+        token!,
+      );
+    } else {
+      // Di luar Geofence
+      print('Keluar dari Geofence');
+      sendNotification(
+        'Geofence Radius',
+        'Lokasi yang di Klik berada di luar Geofence',
+        token!,
+      );
+    }
 
     // Mengkonversi jarak dari meter ke kilometer
     double distanceInKilometers = distanceInMeters / 1000;
@@ -166,12 +188,77 @@ class _MapPageState extends State<MapPage> {
     });
   }
 
+  void showFlutterNotification(RemoteMessage message) {
+    RemoteNotification? notification = message.notification;
+    AndroidNotification? android = message.notification?.android;
+    if (notification != null && android != null && !kIsWeb) {
+      flutterLocalNotificationsPlugin.show(
+        notification.hashCode,
+        notification.title,
+        notification.body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            channel.id,
+            channel.name,
+            channelDescription: channel.description,
+            //      one that already exists in example app.
+            icon: 'launch_background',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> sendNotification(String title, String body, String token) async {
+    if (token == null) {
+      print('Unable to send FCM message, no token exists.');
+      return;
+    }
+
+    try {
+      const url = 'https://fcm.googleapis.com/fcm/send';
+
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'key=$firebase_server_key',
+      };
+
+      final payload = {
+        'notification': {
+          'title': title,
+          'body': body,
+        },
+        'to': token, // Replace with the device token of the target device
+      };
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: headers,
+        body: json.encode(payload),
+      );
+
+      if (response.statusCode == 200) {
+        print('Notification sent successfully');
+      } else {
+        print('Failed to send notification');
+      }
+      print(response.statusCode);
+    } catch (e) {
+      print(e);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     determinePosition();
     checkLocationPermission();
     geofenceCoordinates = LatLng(-6.9676662, 107.6565929);
+    FirebaseMessaging.onMessage.listen(showFlutterNotification);
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      print('A new onMessageOpenedApp event was published!');
+      //
+    });
   }
 
   @override
@@ -221,6 +308,15 @@ class _MapPageState extends State<MapPage> {
                     points: routepoints,
                     color: Colors.blue,
                     strokeWidth: 4,
+                  )
+                ],
+              ),
+              CircleLayer(
+                circles: [
+                  CircleMarker(
+                    point: LatLng(-6.9676561, 107.6565044),
+                    radius: 200,
+                    color: Colors.transparent,
                   )
                 ],
               )
