@@ -30,6 +30,7 @@ class _MapPageState extends State<MapPage> {
   LatLng? geofenceCoordinates;
   String currentLocation = '';
   String markedLocation = '';
+  double currentZoom = 12.0;
   bool isClikMarker = false;
 
   void handleTap(TapPosition post, LatLng latLng) async {
@@ -270,7 +271,7 @@ class _MapPageState extends State<MapPage> {
             mapController: mapController,
             options: MapOptions(
               center: LatLng(0, 0),
-              zoom: 12.0,
+              zoom: currentZoom,
               onTap: handleTap,
             ),
             nonRotatedChildren: const [
@@ -384,6 +385,46 @@ class _MapPageState extends State<MapPage> {
                   ],
                 ),
               ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.only(left: 15),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      mapController.move(
+                          mapController.center, mapController.zoom + 1);
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(),
+                    ),
+                    child: const Icon(Icons.zoom_in),
+                  ),
+                ),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      mapController.move(
+                          mapController.center, mapController.zoom - 1);
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(),
+                    ),
+                    child: const Icon(Icons.zoom_out),
+                  ),
+                ),
+              ],
             ),
           )
         ],
