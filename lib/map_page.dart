@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_maps/api_service.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:http/http.dart' as http;
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -18,11 +22,12 @@ class _MapPageState extends State<MapPage> {
   MapController mapController = MapController();
   Marker? tappedMarker;
   LatLng? tappedLatLng;
+  List listOfPoint = [];
   List<LatLng> routepoints = [];
   LatLng? geofenceCoordinates;
-  TextEditingController currentLoc = TextEditingController(text: '');
-  TextEditingController markerLoc = TextEditingController(text: '');
-  bool isVisible = false;
+  String currentLocation = '';
+  String markedLocation = '';
+  bool isClikMarker = false;
 
   void handleTap(TapPosition post, LatLng latLng) async {
     setState(() {
@@ -34,13 +39,9 @@ class _MapPageState extends State<MapPage> {
           color: Colors.green,
         ),
       );
-    });
 
-    if (routepoints.length >= 2) {
-      routepoints[1] = tappedLatLng!;
-    } else {
-      routepoints.add(tappedLatLng!);
-    }
+      isClikMarker = true;
+    });
 
     List<Placemark> placemarks = await placemarkFromCoordinates(
       tappedLatLng!.latitude,
@@ -50,13 +51,13 @@ class _MapPageState extends State<MapPage> {
     if (placemarks.isNotEmpty) {
       Placemark placemark = placemarks[0];
       String formattedAddress =
-          '${placemark.name}, ${placemark.locality}, ${placemark.subAdministrativeArea}, ${placemark.administrativeArea}, ${placemark.country}';
+          '${placemark.thoroughfare} ${placemark.subThoroughfare} ${placemark.subLocality}, ${placemark.locality}, ${placemark.subAdministrativeArea}, ${placemark.administrativeArea},${placemark.postalCode} ${placemark.country}';
       setState(() {
-        markerLoc.text = formattedAddress;
+        markedLocation = formattedAddress;
       });
     } else {
       setState(() {
-        markerLoc.text = 'No address available';
+        markedLocation = 'No address available';
       });
     }
 
@@ -131,13 +132,13 @@ class _MapPageState extends State<MapPage> {
     if (placemarks.isNotEmpty) {
       Placemark placemark = placemarks[0];
       String formattedAddress =
-          '${placemark.name}, ${placemark.locality}, ${placemark.subAdministrativeArea}, ${placemark.administrativeArea}, ${placemark.country}';
+          '${placemark.thoroughfare} ${placemark.subThoroughfare} ${placemark.subLocality}, ${placemark.locality}, ${placemark.subAdministrativeArea}, ${placemark.administrativeArea},${placemark.postalCode} ${placemark.country}';
       setState(() {
-        currentLoc.text = formattedAddress;
+        currentLocation = formattedAddress;
       });
     } else {
       setState(() {
-        currentLoc.text = 'No address available';
+        currentLocation = 'No address available';
       });
     }
     routepoints.add(point!);
@@ -148,6 +149,21 @@ class _MapPageState extends State<MapPage> {
     if (point != null) {
       mapController.move(point!, 18.0);
     }
+  }
+
+  getCoordinates() async {
+    var response = await http.get(getRouteUrl(
+        "${point!.longitude.toString()},${point!.latitude.toString()}",
+        "${tappedLatLng!.longitude.toString()},${tappedLatLng!.latitude.toString()}"));
+    setState(() {
+      if (response.statusCode == 200) {
+        var data = jsonDecode(response.body);
+        listOfPoint = data['features'][0]['geometry']['coordinates'];
+        routepoints = listOfPoint
+            .map((p) => LatLng(p[1].toDouble(), p[0].toDouble()))
+            .toList();
+      }
+    });
   }
 
   @override
@@ -170,6 +186,16 @@ class _MapPageState extends State<MapPage> {
               zoom: 12.0,
               onTap: handleTap,
             ),
+            nonRotatedChildren: const [
+              RichAttributionWidget(
+                attributions: [
+                  TextSourceAttribution(
+                    'OpenStreetMap contributors',
+                    onTap: null,
+                  ),
+                ],
+              )
+            ],
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -189,79 +215,78 @@ class _MapPageState extends State<MapPage> {
                   if (tappedMarker != null) tappedMarker!,
                 ],
               ),
-              Visibility(
-                visible: isVisible,
-                child: PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: routepoints,
-                      color: Colors.blue,
-                      strokeWidth: 4,
-                    )
-                  ],
-                ),
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: routepoints,
+                    color: Colors.blue,
+                    strokeWidth: 4,
+                  )
+                ],
               )
             ],
           ),
           Padding(
             padding: const EdgeInsets.all(15),
             child: Container(
-              height: 180,
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Column(
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Lokasi saat ini',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(
-                        height: 3,
-                      ),
-                      TextField(
-                        controller: currentLoc,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
+              child: IntrinsicHeight(
+                child: Column(
+                  children: [
+                    Column(
+                      children: [
+                        const Text(
+                          'Lokasi saat ini',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Lokasi dituju',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
+                        const SizedBox(
+                          height: 3,
                         ),
-                      ),
-                      const SizedBox(
-                        height: 3,
-                      ),
-                      TextField(
-                        controller: markerLoc,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            border: Border.all(),
                             borderRadius: BorderRadius.circular(8),
                           ),
+                          child: Text(currentLocation),
                         ),
+                      ],
+                    ),
+                    const SizedBox(
+                      height: 10,
+                    ),
+                    Visibility(
+                      visible: isClikMarker,
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Lokasi yang di klik',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(
+                            height: 3,
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              border: Border.all(),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(markedLocation),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           )
@@ -270,8 +295,8 @@ class _MapPageState extends State<MapPage> {
       floatingActionButton: Stack(
         children: [
           Positioned(
-            bottom: 16,
-            right: 16,
+            bottom: 15,
+            right: 15,
             child: FloatingActionButton(
               onPressed: () => updateMarker(),
               child: const Icon(
@@ -282,17 +307,42 @@ class _MapPageState extends State<MapPage> {
           ),
           Positioned(
             bottom: 80,
-            right: 16,
+            right: 15,
             child: FloatingActionButton(
-              backgroundColor: isVisible == true ? Colors.blue : Colors.white,
+              backgroundColor: Colors.green.shade500,
               onPressed: () {
-                setState(() {
-                  isVisible = !isVisible;
-                });
+                getCoordinates();
               },
               child: const Icon(
                 Icons.route,
                 color: Colors.black,
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 145,
+            right: 15,
+            child: Visibility(
+              visible: isClikMarker,
+              child: FloatingActionButton(
+                backgroundColor: Colors.red.shade500,
+                onPressed: () {
+                  getCoordinates();
+                },
+                child: IconButton(
+                  onPressed: () {
+                    setState(() {
+                      isClikMarker = false;
+                      markedLocation = '';
+                      tappedMarker = null;
+                      routepoints = [];
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.location_off,
+                    color: Colors.black,
+                  ),
+                ),
               ),
             ),
           ),
