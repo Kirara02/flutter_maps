@@ -63,6 +63,7 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return const MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'fluter_map',
       home: SafeArea(
         child: MapPage(),
       ),

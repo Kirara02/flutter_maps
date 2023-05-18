@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
 const String baseUrl =
     'https://api.openrouteservice.org/v2/directions/driving-car';
 const String apiKey =
@@ -7,4 +11,15 @@ const firebase_server_key =
 
 getRouteUrl(String startPoint, String endPoint) {
   return Uri.parse('$baseUrl?api_key=$apiKey&start=$startPoint&end=$endPoint');
+}
+
+Future<List<Map<String, dynamic>>> searchPlaces(String query) async {
+  final endpoint = Uri.parse(
+    'https://nominatim.openstreetmap.org/search?format=json&q=$query',
+  );
+
+  final response = await http.get(endpoint);
+  final data = json.decode(response.body);
+
+  return List<Map<String, dynamic>>.from(data);
 }

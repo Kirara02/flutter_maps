@@ -31,7 +31,9 @@ class _MapPageState extends State<MapPage> {
   String currentLocation = '';
   String markedLocation = '';
   double currentZoom = 12.0;
+  List<Map<String, dynamic>> searchResults = [];
   bool isClikMarker = false;
+  TextEditingController searchC = TextEditingController(text: '');
 
   void handleTap(TapPosition post, LatLng latLng) async {
     setState(() {
@@ -64,7 +66,7 @@ class _MapPageState extends State<MapPage> {
         markedLocation = 'No address available';
       });
     }
-
+    searchC.text = markedLocation;
     String distance = await calculateDistance(point!, latLng);
 
     print('Jarak antara lokasi anda ke lokasi yang dituju adalah $distance km');
@@ -296,7 +298,7 @@ class _MapPageState extends State<MapPage> {
                     Marker(
                       point: point!,
                       builder: (ctx) => const Icon(
-                        Icons.location_on,
+                        Icons.my_location,
                         color: Colors.red,
                       ),
                     ),
@@ -325,66 +327,82 @@ class _MapPageState extends State<MapPage> {
           ),
           Padding(
             padding: const EdgeInsets.all(15),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: IntrinsicHeight(
-                child: Column(
-                  children: [
-                    Column(
-                      children: [
-                        const Text(
-                          'Lokasi saat ini',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(
-                          height: 3,
-                        ),
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            border: Border.all(),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(currentLocation),
-                        ),
-                      ],
+            child: Column(
+              children: [
+                TextField(
+                  controller: searchC,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.location_pin),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(50),
                     ),
-                    const SizedBox(
-                      height: 10,
-                    ),
-                    Visibility(
-                      visible: isClikMarker,
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Lokasi yang di klik',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(
-                            height: 3,
-                          ),
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              border: Border.all(),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(markedLocation),
-                          ),
-                        ],
+                  ),
+                  onChanged: (value) {
+                    // Panggil metode searchPlaces() saat nilai input berubah
+                    searchPlaces(value).then((results) {
+                      setState(() {
+                        searchResults = results;
+                      });
+                    });
+                  },
+                ),
+                if (searchResults.isNotEmpty)
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Container(
+                        color: Colors.white,
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: searchResults.length,
+                          itemBuilder: (BuildContext context, int index) {
+                            final result = searchResults[index];
+                            final displayName = result['display_name'];
+                            double lat = 0;
+                            double lon = 0;
+                            try {
+                              double lat = double.parse(result['lat']);
+                              double lon = double.parse(result['lon']);
+                              tappedLatLng = LatLng(lat, lon);
+                            } catch (e) {
+                              print('Error parsing latitude or longitude: $e');
+                            }
+
+                            return Column(
+                              children: [
+                                Container(
+                                  child: ListTile(
+                                    title: Text(displayName),
+                                    onTap: () {
+                                      // Aksi yang ingin Anda lakukan saat item dipilih
+                                      print('Item dipilih: $displayName');
+                                      setState(() {
+                                        tappedLatLng = LatLng(lat, lon);
+                                        tappedMarker = Marker(
+                                          point: LatLng(lat, lon),
+                                          builder: (ctx) => const Icon(
+                                            Icons.location_pin,
+                                            color: Colors.green,
+                                          ),
+                                        );
+    
+                                        isClikMarker = true;
+                                        mapController.move(tappedLatLng!, 10.0);
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const Divider(),
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+              ],
             ),
           ),
           Container(
@@ -400,12 +418,16 @@ class _MapPageState extends State<MapPage> {
                     });
                   },
                   child: Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(5),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      border: Border.all(),
+                      border: Border.all(color: Colors.red),
                     ),
-                    child: const Icon(Icons.zoom_in),
+                    child: Icon(
+                      Icons.zoom_in,
+                      size: 28,
+                      color: Colors.red.shade300,
+                    ),
                   ),
                 ),
                 InkWell(
@@ -416,12 +438,16 @@ class _MapPageState extends State<MapPage> {
                     });
                   },
                   child: Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(5),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      border: Border.all(),
+                      border: Border.all(color: Colors.red),
                     ),
-                    child: const Icon(Icons.zoom_out),
+                    child: Icon(
+                      Icons.zoom_out,
+                      size: 28,
+                      color: Colors.red.shade300,
+                    ),
                   ),
                 ),
               ],
@@ -437,7 +463,7 @@ class _MapPageState extends State<MapPage> {
             child: FloatingActionButton(
               onPressed: () => updateMarker(),
               child: const Icon(
-                Icons.my_location,
+                Icons.location_searching,
                 color: Colors.black,
               ),
             ),
